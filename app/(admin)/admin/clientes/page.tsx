@@ -17,6 +17,7 @@ import {
   Pencil,
   Trash2,
   LoaderCircle,
+  Package,
 } from "lucide-react";
 import { createClient } from "../../../../lib/supabase/client";
 
@@ -302,7 +303,7 @@ export default function ClientesPage() {
         />
 
         <SummaryCard
-          icon={<Building2 size={21} strokeWidth={1.8} />}
+          icon={<Package size={21} strokeWidth={1.8} />}
           title="Activos asociados"
           value={totalAssets}
           color="slate"
@@ -432,7 +433,7 @@ export default function ClientesPage() {
                           </div>
 
                           <div className="min-w-0">
-                            <p className="max-w-64 truncate text-sm font-medium text-slate-800">
+                            <p className="truncate text-sm font-medium text-slate-800">
                               {client.name}
                             </p>
 
@@ -455,7 +456,7 @@ export default function ClientesPage() {
 
                       <td className="px-5 py-4">
                         <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-                          <Building2 size={15} className="text-slate-400" />
+                          <Package size={15} className="text-slate-400" />
                           {client.assets}
                         </span>
                       </td>
@@ -547,7 +548,7 @@ export default function ClientesPage() {
                     </p>
 
                     <p className="flex items-center gap-2 text-xs text-slate-600">
-                      <Building2 size={15} className="shrink-0 text-slate-400" />
+                      <Package size={15} className="shrink-0 text-slate-400" />
                       {client.assets} activos asociados
                     </p>
                   </div>

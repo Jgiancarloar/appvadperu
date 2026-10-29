@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -14,7 +14,6 @@ import {
   Phone,
   Save,
   UserRound,
-  CheckCircle2,
   AlertCircle,
   LoaderCircle,
 } from "lucide-react";
@@ -65,21 +64,29 @@ function capitalizeName(value: string): string {
   return value
     .trim()
     .toLocaleLowerCase("es-PE")
-    .replace(/(^|[\s'-])([\p{L}])/gu, (_, separator: string, letter: string) =>
-      separator + letter.toLocaleUpperCase("es-PE"),
+    .replace(
+      /(^|[\s'-])([\p{L}])/gu,
+      (_, separator: string, letter: string) =>
+        separator + letter.toLocaleUpperCase("es-PE"),
     );
 }
 
 export default function NuevoClientePage() {
   const router = useRouter();
 
-  const [form, setForm] = useState<ClientForm>(initialForm);
+  const [form, setForm] = useState<ClientForm>({ ...initialForm });
   const [errors, setErrors] = useState<
     Partial<Record<keyof ClientForm, string>>
   >({});
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState("");
   const [serverError, setServerError] = useState("");
+
+  // Reinicia el formulario cuando se monta esta pantalla.
+  useEffect(() => {
+    setForm({ ...initialForm });
+    setErrors({});
+    setServerError("");
+  }, []);
 
   const provinciasDisponibles = obtenerProvincias(form.department);
 
@@ -87,6 +94,12 @@ export default function NuevoClientePage() {
     form.department,
     form.province,
   );
+
+  function resetForm() {
+    setForm({ ...initialForm });
+    setErrors({});
+    setServerError("");
+  }
 
   function updateField(field: keyof ClientForm, value: string) {
     setForm((previous) => {
@@ -113,7 +126,6 @@ export default function NuevoClientePage() {
       ...(field === "province" ? { district: undefined } : {}),
     }));
 
-    setSuccess("");
     setServerError("");
   }
 
@@ -145,14 +157,18 @@ export default function NuevoClientePage() {
 
     if (
       form.province &&
-      !provinciasDisponibles.some((province) => province.id === form.province)
+      !provinciasDisponibles.some(
+        (province) => province.id === form.province,
+      )
     ) {
       nextErrors.province = "Selecciona una provincia válida.";
     }
 
     if (
       form.district &&
-      !distritosDisponibles.some((district) => district.id === form.district)
+      !distritosDisponibles.some(
+        (district) => district.id === form.district,
+      )
     ) {
       nextErrors.district = "Selecciona un distrito válido.";
     }
@@ -163,7 +179,6 @@ export default function NuevoClientePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSuccess("");
     setServerError("");
 
     if (!validateForm()) return;
@@ -188,7 +203,9 @@ export default function NuevoClientePage() {
       const distrito = obtenerDistritoPorId(form.district);
 
       const { error: insertError } = await supabase.from("clients").insert({
-        business_name: form.businessName.trim().toLocaleLowerCase("es-PE"),
+        business_name: form.businessName
+          .trim()
+          .toLocaleLowerCase("es-PE"),
         trade_name: form.tradeName.trim()
           ? form.tradeName.trim().toLocaleLowerCase("es-PE")
           : null,
@@ -234,7 +251,9 @@ export default function NuevoClientePage() {
         return;
       }
 
-      setSuccess("Cliente registrado correctamente.");
+      // Limpiamos los campos antes de salir de la página.
+      resetForm();
+
       router.replace("/admin/clientes");
       router.refresh();
     } catch (error) {
@@ -310,9 +329,15 @@ export default function NuevoClientePage() {
                 placeholder="Ej. Constructora El Roble S.A.C."
                 className={inputClass}
                 aria-invalid={Boolean(errors.businessName)}
+                aria-describedby={
+                  errors.businessName ? "businessName-error" : undefined
+                }
               />
               {errors.businessName && (
-                <p className="mt-1.5 text-xs text-rose-600">
+                <p
+                  id="businessName-error"
+                  className="mt-1.5 text-xs text-rose-600"
+                >
                   {errors.businessName}
                 </p>
               )}
@@ -354,10 +379,13 @@ export default function NuevoClientePage() {
                   placeholder="20123456789"
                   className={`${inputClass} pl-10`}
                   aria-invalid={Boolean(errors.ruc)}
+                  aria-describedby={errors.ruc ? "ruc-error" : undefined}
                 />
               </div>
               {errors.ruc && (
-                <p className="mt-1.5 text-xs text-rose-600">{errors.ruc}</p>
+                <p id="ruc-error" className="mt-1.5 text-xs text-rose-600">
+                  {errors.ruc}
+                </p>
               )}
             </div>
           </div>
@@ -390,9 +418,15 @@ export default function NuevoClientePage() {
                 placeholder="Nombre y apellidos"
                 className={inputClass}
                 aria-invalid={Boolean(errors.contactName)}
+                aria-describedby={
+                  errors.contactName ? "contactName-error" : undefined
+                }
               />
               {errors.contactName && (
-                <p className="mt-1.5 text-xs text-rose-600">
+                <p
+                  id="contactName-error"
+                  className="mt-1.5 text-xs text-rose-600"
+                >
                   {errors.contactName}
                 </p>
               )}
@@ -416,10 +450,13 @@ export default function NuevoClientePage() {
                   placeholder="contacto@empresa.com"
                   className={`${inputClass} pl-10`}
                   aria-invalid={Boolean(errors.email)}
+                  aria-describedby={errors.email ? "email-error" : undefined}
                 />
               </div>
               {errors.email && (
-                <p className="mt-1.5 text-xs text-rose-600">{errors.email}</p>
+                <p id="email-error" className="mt-1.5 text-xs text-rose-600">
+                  {errors.email}
+                </p>
               )}
             </div>
 
@@ -572,16 +609,6 @@ export default function NuevoClientePage() {
           >
             <AlertCircle size={19} className="mt-0.5 shrink-0" />
             <p>{serverError}</p>
-          </div>
-        )}
-
-        {success && (
-          <div
-            role="status"
-            className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"
-          >
-            <CheckCircle2 size={19} className="mt-0.5 shrink-0" />
-            <p>{success}</p>
           </div>
         )}
 

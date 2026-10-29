@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Search,
   Plus,
@@ -114,18 +115,13 @@ export default function UsuariosPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() =>
-            alert(
-              "En el siguiente paso conectaremos el formulario de creación.",
-            )
-          }
+        <Link
+          href="/admin/usuarios/nuevo"
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-700"
         >
           <Plus size={17} />
           Nuevo usuario
-        </button>
+        </Link>
       </div>
 
       {/* Tarjetas de resumen */}
@@ -286,18 +282,16 @@ export default function UsuariosPage() {
 
                     <td className="px-5 py-4">
                       <span
-                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${
-                          user.status === "Activo"
+                        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${user.status === "Activo"
                             ? "bg-emerald-50 text-emerald-700"
                             : "bg-gray-100 text-gray-600"
-                        }`}
+                          }`}
                       >
                         <span
-                          className={`size-1.5 rounded-full ${
-                            user.status === "Activo"
+                          className={`size-1.5 rounded-full ${user.status === "Activo"
                               ? "bg-emerald-500"
                               : "bg-gray-400"
-                          }`}
+                            }`}
                         />
 
                         {user.status}

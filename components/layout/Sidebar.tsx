@@ -8,7 +8,7 @@ import {
   Activity,
   Building2,
   ChevronRight,
-  DoorClosed,
+  Package,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -35,7 +35,7 @@ const navigation = [
     title: "GESTIÓN",
     items: [
       { label: "Clientes", href: "/admin/clientes", icon: Building2 },
-      { label: "Activos", href: "/admin/activos", icon: DoorClosed },
+      { label: "Activos", href: "/admin/activos", icon: Package },
       { label: "Documentos", href: "/admin/documentos", icon: FileText },
       { label: "Incidencias", href: "/admin/incidencias", icon: Activity },
       { label: "Usuarios", href: "/admin/usuarios", icon: Users },
@@ -44,6 +44,11 @@ const navigation = [
   {
     title: "SISTEMA",
     items: [
+      {
+        label: "Administración",
+        href: "/admin/administracion",
+        icon: ShieldCheck,
+      },
       {
         label: "Configuración",
         href: "/admin/configuracion",
@@ -149,7 +154,7 @@ function SidebarContent({
                     {isActive && (
                       <ChevronRight
                         size={15}
-                        className="text-slate-400"
+                        className="text-white"
                       />
                     )}
                   </Link>
