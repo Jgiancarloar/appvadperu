@@ -13,15 +13,16 @@ import {
   UserRoundPlus,
   Wrench,
 } from "lucide-react";
-import { createClient } from "../../../../lib/supabase/client";
 
 type InternalRole = "vad_admin" | "vad_technician";
 
 type InternalUser = {
   id: string;
   full_name: string;
+  email: string;
   role: InternalRole;
   is_active: boolean;
+  created_at: string;
 };
 
 const roleLabels: Record<InternalRole, string> = {
@@ -32,36 +33,32 @@ const roleLabels: Record<InternalRole, string> = {
 export default function AdministracionPage() {
   const [users, setUsers] = useState<InternalUser[]>([]);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"todos" | InternalRole>(
-    "todos",
-  );
+  const [roleFilter, setRoleFilter] = useState<"todos" | InternalRole>("todos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const supabase = createClient();
+      const response = await fetch("/api/admin/system-users", {
+        method: "GET",
+        cache: "no-store",
+      });
 
-      const { data, error: queryError } = await supabase
-        .from("profiles")
-        .select("id, full_name, role, is_active")
-        .in("role", ["vad_admin", "vad_technician"])
-        .order("full_name", { ascending: true });
+      const result = await response.json();
 
-      if (queryError) {
-        console.error("Error cargando usuarios internos:", queryError);
-        setError(
-          "No se pudieron cargar los usuarios. Verifica los permisos de Supabase.",
-        );
+      if (!response.ok) {
+        setError(result.error || "No se pudieron cargar los usuarios.");
         return;
       }
 
-      setUsers((data ?? []) as InternalUser[]);
+      setUsers(result.users ?? []);
+      setIsSuperadmin(result.isSuperadmin === true);
     } catch (err) {
-      console.error("Error inesperado:", err);
+      console.error("Error cargando usuarios internos:", err);
       setError("Ocurrió un error al cargar los usuarios internos.");
     } finally {
       setLoading(false);
@@ -76,9 +73,9 @@ export default function AdministracionPage() {
     const normalizedSearch = search.trim().toLowerCase();
 
     return users.filter((user) => {
-      const matchesSearch = user.full_name
-        .toLowerCase()
-        .includes(normalizedSearch);
+      const matchesSearch =
+        user.full_name.toLowerCase().includes(normalizedSearch) ||
+        user.email.toLowerCase().includes(normalizedSearch);
 
       const matchesRole =
         roleFilter === "todos" || user.role === roleFilter;
@@ -90,7 +87,7 @@ export default function AdministracionPage() {
   const activeCount = users.filter((user) => user.is_active).length;
   const adminCount = users.filter((user) => user.role === "vad_admin").length;
   const technicianCount = users.filter(
-    (user) => user.role === "vad_technician",
+    (user) => user.role === "vad_technician"
   ).length;
 
   return (
@@ -107,6 +104,7 @@ export default function AdministracionPage() {
         </p>
       </div>
 
+      {/* RESUMEN */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           title="Usuarios internos"
@@ -133,6 +131,7 @@ export default function AdministracionPage() {
         />
       </div>
 
+      {/* LISTADO */}
       <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <div className="flex flex-col gap-4 border-b border-gray-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -145,15 +144,18 @@ export default function AdministracionPage() {
             </p>
           </div>
 
-          <Link
-            href="/admin/administracion/usuarios/nuevo"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-700"
-          >
-            <UserRoundPlus size={17} />
-            Nuevo usuario interno
-          </Link>
+          {isSuperadmin && (
+            <Link
+              href="/admin/administracion/usuarios/nuevo"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-700"
+            >
+              <UserRoundPlus size={17} />
+              Nuevo usuario interno
+            </Link>
+          )}
         </div>
 
+        {/* BÚSQUEDA Y FILTROS */}
         <div className="flex flex-col gap-3 border-b border-gray-100 p-4 sm:flex-row">
           <div className="relative min-w-0 flex-1">
             <Search
@@ -165,7 +167,7 @@ export default function AdministracionPage() {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por nombre..."
+              placeholder="Buscar por nombre o correo..."
               aria-label="Buscar usuario interno"
               className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-700 outline-none transition placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
             />
@@ -185,6 +187,7 @@ export default function AdministracionPage() {
           </select>
         </div>
 
+        {/* ERRORES */}
         {error && (
           <div className="m-4 rounded-xl border border-red-200 bg-red-50 p-4">
             <p role="alert" className="text-sm text-red-700">
@@ -201,8 +204,9 @@ export default function AdministracionPage() {
           </div>
         )}
 
+        {/* TABLA */}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[620px] text-left">
+          <table className="w-full min-w-[720px] text-left">
             <thead className="bg-gray-50/80">
               <tr className="text-xs font-medium uppercase tracking-wide text-gray-500">
                 <th className="px-5 py-3.5">Usuario</th>
@@ -249,6 +253,8 @@ export default function AdministracionPage() {
                 filteredUsers.map((user) => {
                   const isAdmin = user.role === "vad_admin";
                   const Icon = isAdmin ? ShieldCheck : Wrench;
+                  const isProtectedSuperadmin =
+                    user.email.toLowerCase() === "ventas@vad-peru.com";
 
                   return (
                     <tr
@@ -262,11 +268,20 @@ export default function AdministracionPage() {
                           </div>
 
                           <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {user.full_name || "Sin nombre"}
-                            </p>
-                            <p className="mt-0.5 text-xs text-gray-400">
-                              ID: {user.id.slice(0, 8)}…
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-medium text-gray-900">
+                                {user.full_name || "Sin nombre"}
+                              </p>
+
+                              {isProtectedSuperadmin && (
+                                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                  SUPERADMIN
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-0.5 text-xs text-gray-500">
+                              {user.email}
                             </p>
                           </div>
                         </div>

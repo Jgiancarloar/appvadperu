@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   Building2,
@@ -65,8 +65,15 @@ function SidebarContent({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState("");
+
+  // Reiniciar el estado al cambiar de módulo.
+  useEffect(() => {
+    setIsSigningOut(false);
+    setSignOutError("");
+  }, [pathname]);
 
   async function handleSignOut() {
     if (isSigningOut) return;
@@ -79,22 +86,28 @@ function SidebarContent({
       const { error } = await supabase.auth.signOut();
 
       if (error) {
-        setSignOutError("No se pudo cerrar la sesión. Inténtalo de nuevo.");
+        setSignOutError(
+          "No se pudo cerrar la sesión. Inténtalo de nuevo."
+        );
         setIsSigningOut(false);
         return;
       }
 
       onNavigate?.();
+
       router.replace("/login");
       router.refresh();
     } catch {
-      setSignOutError("Ocurrió un error al cerrar la sesión.");
+      setSignOutError(
+        "Ocurrió un error al cerrar la sesión."
+      );
       setIsSigningOut(false);
     }
   }
 
   return (
     <>
+      {/* LOGO */}
       <div className="flex h-[76px] shrink-0 items-center gap-3 border-b border-slate-100 px-5">
         <div className="flex size-10 items-center justify-center rounded-xl bg-slate-950 text-lg font-bold text-white">
           V
@@ -104,7 +117,9 @@ function SidebarContent({
           <p className="font-bold tracking-tight text-slate-950">
             VAD-PERU
           </p>
-          <p className="text-xs text-slate-500">Gestión de activos</p>
+          <p className="text-xs text-slate-500">
+            Gestión de activos
+          </p>
         </div>
 
         <div className="ml-auto hidden rounded-md bg-slate-100 p-1.5 text-slate-500 lg:block">
@@ -112,6 +127,7 @@ function SidebarContent({
         </div>
       </div>
 
+      {/* NAVEGACIÓN */}
       <nav className="flex-1 space-y-7 overflow-y-auto px-3 py-6">
         {navigation.map((group) => (
           <div key={group.title}>
@@ -122,6 +138,7 @@ function SidebarContent({
             <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
+
                 const isActive =
                   pathname === item.href ||
                   (item.href !== "/admin/dashboard" &&
@@ -149,7 +166,9 @@ function SidebarContent({
                       }
                     />
 
-                    <span className="flex-1">{item.label}</span>
+                    <span className="flex-1">
+                      {item.label}
+                    </span>
 
                     {isActive && (
                       <ChevronRight
@@ -165,6 +184,7 @@ function SidebarContent({
         ))}
       </nav>
 
+      {/* PERFIL Y CIERRE DE SESIÓN */}
       <div className="shrink-0 border-t border-slate-100 p-3">
         <div className="flex items-center gap-3 rounded-xl p-2.5">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
@@ -175,7 +195,9 @@ function SidebarContent({
             <p className="truncate text-sm font-semibold text-slate-800">
               Administrador
             </p>
-            <p className="truncate text-xs text-slate-500">VAD-PERU</p>
+            <p className="truncate text-xs text-slate-500">
+              VAD-PERU
+            </p>
           </div>
 
           <span
@@ -197,11 +219,14 @@ function SidebarContent({
           type="button"
           onClick={handleSignOut}
           disabled={isSigningOut}
-          className="cursor-pointer mt-1 flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-[13px] font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-1 flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-[13px] font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <LogOut size={18} strokeWidth={1.8} />
+
           <span>
-            {isSigningOut ? "Cerrando sesión..." : "Cerrar sesión"}
+            {isSigningOut
+              ? "Cerrando sesión..."
+              : "Cerrar sesión"}
           </span>
         </button>
       </div>
@@ -214,14 +239,20 @@ export default function Sidebar() {
 
   return (
     <>
+      {/* HEADER MÓVIL */}
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 md:hidden">
         <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-lg bg-slate-950 font-bold text-white">
             V
           </div>
+
           <div>
-            <p className="text-sm font-bold text-slate-950">VAD-PERU</p>
-            <p className="text-[11px] text-slate-500">Gestión de activos</p>
+            <p className="text-sm font-bold text-slate-950">
+              VAD-PERU
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Gestión de activos
+            </p>
           </div>
         </div>
 
@@ -236,6 +267,7 @@ export default function Sidebar() {
         </button>
       </header>
 
+      {/* OVERLAY MÓVIL */}
       {isOpen && (
         <button
           type="button"
@@ -245,12 +277,17 @@ export default function Sidebar() {
         />
       )}
 
+      {/* SIDEBAR */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-slate-200 bg-white transition-transform duration-200 ease-out md:translate-x-0 ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          isOpen
+            ? "translate-x-0"
+            : "-translate-x-full"
         }`}
       >
-        <SidebarContent onNavigate={() => setIsOpen(false)} />
+        <SidebarContent
+          onNavigate={() => setIsOpen(false)}
+        />
       </aside>
     </>
   );

@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
     "192.168.18.32", "192.168.1.46"
   ],
 
+  devIndicators: false,
+
   experimental: {
     agentFeedback: true,
   },
