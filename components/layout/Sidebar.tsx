@@ -20,7 +20,13 @@ import {
 } from "lucide-react";
 import { createClient } from "../../lib/supabase/client";
 
-const navigation = [
+type SidebarUser = {
+  fullName: string;
+  email: string;
+  role: "vad_admin" | "vad_technician";
+};
+
+const adminNavigation = [
   {
     title: "GENERAL",
     items: [
@@ -58,9 +64,38 @@ const navigation = [
   },
 ];
 
+const technicianNavigation = [
+  {
+    title: "OPERACIONES",
+    items: [
+      {
+        label: "Activos",
+        href: "/admin/activos",
+        icon: Package,
+      },
+      {
+        label: "Incidencias",
+        href: "/admin/incidencias",
+        icon: Activity,
+      },
+    ],
+  },
+];
+
+function getInitials(fullName: string) {
+  return fullName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+}
+
 function SidebarContent({
+  user,
   onNavigate,
 }: {
+  user: SidebarUser;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -69,7 +104,15 @@ function SidebarContent({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState("");
 
-  // Reiniciar el estado al cambiar de módulo.
+  const isAdmin = user.role === "vad_admin";
+
+  const navigation = isAdmin
+    ? adminNavigation
+    : technicianNavigation;
+
+  const userInitials = getInitials(user.fullName);
+  const userRoleLabel = isAdmin ? "Administrador" : "Técnico";
+
   useEffect(() => {
     setIsSigningOut(false);
     setSignOutError("");
@@ -87,7 +130,7 @@ function SidebarContent({
 
       if (error) {
         setSignOutError(
-          "No se pudo cerrar la sesión. Inténtalo de nuevo."
+          "No se pudo cerrar la sesión. Inténtalo de nuevo.",
         );
         setIsSigningOut(false);
         return;
@@ -99,7 +142,7 @@ function SidebarContent({
       router.refresh();
     } catch {
       setSignOutError(
-        "Ocurrió un error al cerrar la sesión."
+        "Ocurrió un error al cerrar la sesión.",
       );
       setIsSigningOut(false);
     }
@@ -141,8 +184,7 @@ function SidebarContent({
 
                 const isActive =
                   pathname === item.href ||
-                  (item.href !== "/admin/dashboard" &&
-                    pathname.startsWith(`${item.href}/`));
+                  pathname.startsWith(`${item.href}/`);
 
                 return (
                   <Link
@@ -188,15 +230,15 @@ function SidebarContent({
       <div className="shrink-0 border-t border-slate-100 p-3">
         <div className="flex items-center gap-3 rounded-xl p-2.5">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700 ring-1 ring-slate-200">
-            AD
+            {userInitials}
           </div>
 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-slate-800">
-              Administrador
+              {user.fullName}
             </p>
             <p className="truncate text-xs text-slate-500">
-              VAD-PERU
+              {userRoleLabel}
             </p>
           </div>
 
@@ -234,7 +276,11 @@ function SidebarContent({
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  user,
+}: {
+  user: SidebarUser;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -286,6 +332,7 @@ export default function Sidebar() {
         }`}
       >
         <SidebarContent
+          user={user}
           onNavigate={() => setIsOpen(false)}
         />
       </aside>

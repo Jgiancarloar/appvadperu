@@ -45,9 +45,51 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/admin/dashboard");
-      router.refresh();
-    } catch {
+      // Consultar el perfil y los permisos desde el servidor.
+      const response = await fetch("/api/auth/session", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        await supabase.auth.signOut();
+
+        setMessage(
+          result.error || "No se pudo verificar tu cuenta.",
+        );
+        return;
+      }
+
+      const user = result.user;
+
+      // Los usuarios nuevos deben cambiar su contraseña temporal.
+      if (user.mustChangePassword) {
+        router.replace("/change-password");
+        router.refresh();
+        return;
+      }
+
+      // Redirección según el rol.
+      if (user.role === "vad_admin") {
+        router.replace("/admin/dashboard");
+        router.refresh();
+        return;
+      }
+
+      if (user.role === "vad_technician") {
+        router.replace("/admin/activos");
+        router.refresh();
+        return;
+      }
+
+      await supabase.auth.signOut();
+
+      setMessage("Tu cuenta no tiene un rol autorizado para ingresar.");
+    } catch (error) {
+      console.error("Error durante el inicio de sesión:", error);
+
       setMessage(
         "No se pudo conectar con el servicio. Inténtalo nuevamente.",
       );
