@@ -1,11 +1,12 @@
-
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "../../../../../lib/supabase/client";
 import AssetDocuments from "./AssetDocuments";
+import { QRCodeCanvas } from "qrcode.react";
+
 import {
   ArrowLeft,
   Building2,
@@ -25,6 +26,7 @@ import {
   Info,
   Clock,
   AlertCircle,
+  Download,
 } from "lucide-react";
 
 type AssetStatus = "active" | "inactive" | "maintenance";
@@ -81,12 +83,27 @@ export default function AssetDetailPage() {
 
   const assetId = params.id as string;
 
+  const qrContainerRef = useRef<HTMLDivElement>(null);
+
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [role, setRole] = useState<UserRole>("client_user");
+  const [appOrigin, setAppOrigin] = useState("");
 
+  // Obtener el dominio actual de la aplicación.
+  useEffect(() => {
+    setAppOrigin(window.location.origin);
+  }, []);
+
+  // Generar enlace público del activo.
+  const publicAssetUrl =
+    asset && appOrigin
+      ? `${appOrigin}/activo/${asset.qr_token}`
+      : "";
+
+  // Cargar información del activo.
   const loadAsset = useCallback(async () => {
     try {
       setLoading(true);
@@ -134,7 +151,7 @@ export default function AssetDetailPage() {
 
       if (!sessionResult.ok) {
         throw new Error(
-          sessionData.error || "No se pudo verificar tu sesión."
+          sessionData.error || "No se pudo verificar tu sesión.",
         );
       }
 
@@ -146,7 +163,7 @@ export default function AssetDetailPage() {
         userRole !== "client_user"
       ) {
         throw new Error(
-          "No tienes un rol válido para consultar este activo."
+          "No tienes un rol válido para consultar este activo.",
         );
       }
 
@@ -159,7 +176,7 @@ export default function AssetDetailPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "No se pudo cargar la información del activo."
+          : "No se pudo cargar la información del activo.",
       );
     } finally {
       setLoading(false);
@@ -171,6 +188,31 @@ export default function AssetDetailPage() {
       void loadAsset();
     }
   }, [assetId, loadAsset]);
+
+  // Descargar código QR.
+  const handleDownloadQR = () => {
+    const canvas = qrContainerRef.current?.querySelector("canvas");
+
+    if (!canvas || !asset) return;
+
+    const link = document.createElement("a");
+
+    link.download = `QR-${asset.asset_code}.png`;
+    link.href = canvas.toDataURL("image/png");
+
+    link.click();
+  };
+
+  // Copiar enlace público.
+  const handleCopyLink = async () => {
+    if (!publicAssetUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(publicAssetUrl);
+    } catch (err) {
+      console.error("No se pudo copiar el enlace:", err);
+    }
+  };
 
   const formatDate = (date: string | null) => {
     if (!date) return "No registrada";
@@ -218,6 +260,7 @@ export default function AssetDetailPage() {
         {Icon && <Icon size={14} className="text-slate-400" />}
         {label}
       </p>
+
       <p className="break-words text-sm font-medium text-slate-800">
         {value || "No registrado"}
       </p>
@@ -241,6 +284,7 @@ export default function AssetDetailPage() {
       >
         <Icon size={19} />
       </div>
+
       <div>
         <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
         <p className="mt-0.5 text-xs text-slate-500">{description}</p>
@@ -490,38 +534,82 @@ export default function AssetDetailPage() {
         </div>
       </section>
 
-      {/* Identificación QR */}
+      {/* Identificación QR / NFC */}
       <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white">
         <SectionHeader
           icon={QrCode}
           title="Identificación QR / NFC"
-          description="Identificador único preparado para la trazabilidad del activo."
+          description="Código de acceso único para consultar este activo."
           color="bg-slate-100 text-slate-600"
         />
 
-        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
-          <div className="flex size-24 shrink-0 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-slate-400">
-            <QrCode size={48} strokeWidth={1.3} />
+        <div className="flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:p-6">
+          <div
+            ref={qrContainerRef}
+            className="flex shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white p-3"
+          >
+            {publicAssetUrl ? (
+              <QRCodeCanvas
+                value={publicAssetUrl}
+                size={180}
+                level="H"
+                marginSize={2}
+              />
+            ) : (
+              <div className="flex size-[180px] items-center justify-center">
+                <RefreshCw
+                  className="animate-spin text-slate-400"
+                  size={24}
+                />
+              </div>
+            )}
           </div>
 
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-slate-800">
-              Identificador del activo
+              Código QR del activo
             </p>
 
-            <p className="mt-1 text-xs text-slate-500">
-              Token único asociado a este registro.
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Escanea este código para acceder a la ficha pública del activo.
+              También podrás utilizar el mismo enlace en una etiqueta NFC.
             </p>
 
-            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-              <p className="break-all font-mono text-xs text-slate-600">
-                {asset.qr_token}
+            <div className="mt-4">
+              <p className="mb-1.5 text-xs font-medium text-slate-500">
+                Enlace público
               </p>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="break-all font-mono text-xs text-slate-600">
+                  {publicAssetUrl || "Generando enlace..."}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadQR}
+                disabled={!publicAssetUrl}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Download size={16} />
+                Descargar QR
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                disabled={!publicAssetUrl}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Copiar enlace
+              </button>
             </div>
 
             <p className="mt-2 text-xs text-slate-400">
-              La generación y descarga de etiquetas QR se habilitará en una
-              siguiente etapa.
+              Formato PNG · Alta corrección de errores.
             </p>
           </div>
         </div>

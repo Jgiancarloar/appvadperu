@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
-    // Verificar sesión autenticada.
+    // 1. Verificar sesión autenticada
     const { data, error } = await supabase.auth.getClaims();
     const userId = data?.claims?.sub;
 
@@ -18,15 +18,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verificar que sea un usuario interno activo.
-    const { data: systemUser, error: userError } = await supabaseAdmin
-      .from("system_users")
-      .select("id, role, is_active, must_change_password")
-      .eq("id", userId)
-      .maybeSingle();
+    // 2. Buscar usuario interno
+    const { data: systemUser, error: systemUserError } =
+      await supabaseAdmin
+        .from("system_users")
+        .select("id, role, is_active")
+        .eq("id", userId)
+        .maybeSingle();
 
-    if (userError) {
-      console.error("Error consultando usuario:", userError);
+    if (systemUserError) {
+      console.error("Error consultando usuario interno:", systemUserError);
 
       return NextResponse.json(
         { error: "No se pudo verificar tu cuenta." },
@@ -34,19 +35,64 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      !systemUser ||
-      !systemUser.is_active ||
-      !["vad_admin", "vad_technician"].includes(systemUser.role)
-    ) {
+    let role: "vad_admin" | "vad_technician" | "client_user";
+    let userTable: "system_users" | "client_users";
+
+    if (systemUser) {
+      // 3. Validar usuario interno
+      if (
+        !systemUser.is_active ||
+        !["vad_admin", "vad_technician"].includes(systemUser.role)
+      ) {
+        return NextResponse.json(
+          { error: "No tienes autorización para realizar esta operación." },
+          { status: 403 },
+        );
+      }
+
+      role = systemUser.role as "vad_admin" | "vad_technician";
+      userTable = "system_users";
+    } else {
+      // 4. Si no es interno, buscar usuario cliente
+      const { data: clientUser, error: clientUserError } =
+        await supabaseAdmin
+          .from("client_users")
+          .select("id, is_active")
+          .eq("id", userId)
+          .maybeSingle();
+
+      if (clientUserError) {
+        console.error("Error consultando usuario cliente:", clientUserError);
+
+        return NextResponse.json(
+          { error: "No se pudo verificar tu cuenta." },
+          { status: 500 },
+        );
+      }
+
+      if (!clientUser || !clientUser.is_active) {
+        return NextResponse.json(
+          { error: "No tienes autorización para realizar esta operación." },
+          { status: 403 },
+        );
+      }
+
+      role = "client_user";
+      userTable = "client_users";
+    }
+
+    // 5. Validar contraseña recibida
+    let body: { password?: unknown };
+
+    try {
+      body = await request.json();
+    } catch {
       return NextResponse.json(
-        { error: "No tienes autorización para realizar esta operación." },
-        { status: 403 },
+        { error: "La solicitud no contiene datos válidos." },
+        { status: 400 },
       );
     }
 
-    // Validar contraseña recibida.
-    const body = await request.json();
     const password = body?.password;
 
     if (
@@ -60,7 +106,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Actualizar contraseña en Supabase Auth.
+    // 6. Actualizar contraseña en Supabase Auth
     const { error: passwordError } =
       await supabaseAdmin.auth.admin.updateUserById(userId, {
         password,
@@ -75,9 +121,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Marcar que el usuario ya cambió su contraseña temporal.
+    // 7. Marcar que el usuario ya cambió su contraseña temporal
     const { error: updateError } = await supabaseAdmin
-      .from("system_users")
+      .from(userTable)
       .update({ must_change_password: false })
       .eq("id", userId);
 
@@ -93,9 +139,11 @@ export async function POST(request: Request) {
       );
     }
 
+    // 8. Devolver el rol para realizar la redirección correcta
     return NextResponse.json({
       success: true,
       message: "Tu contraseña se actualizó correctamente.",
+      role,
     });
   } catch (error) {
     console.error("Error en cambio de contraseña:", error);

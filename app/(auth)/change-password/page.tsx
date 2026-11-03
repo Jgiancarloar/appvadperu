@@ -70,7 +70,14 @@ export default function ChangePasswordPage() {
         return;
       }
 
-      router.replace("/admin/dashboard");
+      const destination =
+        result.role === "client_user"
+          ? "/cliente/dashboard"
+          : result.role === "vad_technician"
+            ? "/admin/activos"
+            : "/admin/dashboard";
+
+      router.replace(destination);
       router.refresh();
     } catch (error) {
       console.error("Error cambiando contraseña:", error);

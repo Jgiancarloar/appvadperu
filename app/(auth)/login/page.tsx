@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   Eye,
@@ -13,14 +13,24 @@ import {
 } from "lucide-react";
 import { createClient } from "../../../lib/supabase/client";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Recuperar la ruta de retorno si el usuario llegó desde un QR/NFC.
+  const next = searchParams.get("next");
+
+  // Evitar redirecciones hacia sitios externos.
+  const returnTo =
+    next && next.startsWith("/") && !next.startsWith("//")
+      ? next
+      : null;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,6 +43,7 @@ export default function LoginPage() {
     try {
       const supabase = createClient();
 
+      // 1. Iniciar sesión con Supabase Auth.
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
@@ -45,7 +56,7 @@ export default function LoginPage() {
         return;
       }
 
-      // Consultar el perfil y los permisos desde el servidor.
+      // 2. Consultar el perfil y los permisos desde el servidor.
       const response = await fetch("/api/auth/session", {
         method: "GET",
         cache: "no-store",
@@ -64,29 +75,49 @@ export default function LoginPage() {
 
       const user = result.user;
 
-      // Los usuarios nuevos deben cambiar su contraseña temporal.
+      // 3. Los usuarios nuevos deben cambiar su contraseña temporal.
       if (user.mustChangePassword) {
         router.replace("/change-password");
         router.refresh();
         return;
       }
 
-      // Redirección según el rol.
+      // 4. Si viene de un QR/NFC, regresar al activo solicitado.
+      if (returnTo) {
+        router.replace(returnTo);
+        router.refresh();
+        return;
+      }
+
+      // 5. Redirección habitual según el rol.
+
+      // Administrador y superadmin.
       if (user.role === "vad_admin") {
         router.replace("/admin/dashboard");
         router.refresh();
         return;
       }
 
+      // Técnico.
       if (user.role === "vad_technician") {
         router.replace("/admin/activos");
         router.refresh();
         return;
       }
 
+      // Cliente.
+      if (user.role === "client_user") {
+        router.replace("/cliente/dashboard");
+        router.refresh();
+        return;
+      }
+
+      // 6. Si el rol no está autorizado, cerrar sesión.
       await supabase.auth.signOut();
 
-      setMessage("Tu cuenta no tiene un rol autorizado para ingresar.");
+      setMessage(
+        "Tu cuenta no tiene un rol autorizado para ingresar.",
+      );
     } catch (error) {
       console.error("Error durante el inicio de sesión:", error);
 
@@ -100,16 +131,19 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F7F8FA] px-4 py-10 sm:px-6">
+      {/* FONDOS DECORATIVOS */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -right-32 -top-32 size-96 rounded-full bg-blue-100/40 blur-3xl"
       />
+
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -bottom-40 -left-32 size-96 rounded-full bg-slate-200/50 blur-3xl"
       />
 
       <div className="relative z-10 w-full max-w-[440px]">
+        {/* LOGOTIPO */}
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="flex size-14 items-center justify-center rounded-2xl bg-slate-950 text-xl font-bold text-white shadow-lg shadow-slate-900/10">
             V
@@ -124,6 +158,7 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {/* FORMULARIO */}
         <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-200/40">
           <div className="border-b border-slate-100 px-6 py-7 sm:px-8">
             <div className="mb-5 flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
@@ -143,6 +178,7 @@ export default function LoginPage() {
             onSubmit={handleSubmit}
             className="space-y-5 px-6 py-7 sm:px-8"
           >
+            {/* CORREO ELECTRÓNICO */}
             <div>
               <label
                 htmlFor="email"
@@ -176,6 +212,7 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* CONTRASEÑA */}
             <div>
               <label
                 htmlFor="password"
@@ -209,7 +246,9 @@ export default function LoginPage() {
 
                 <button
                   type="button"
-                  onClick={() => setShowPassword((previous) => !previous)}
+                  onClick={() =>
+                    setShowPassword((previous) => !previous)
+                  }
                   aria-label={
                     showPassword
                       ? "Ocultar contraseña"
@@ -228,6 +267,7 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* MENSAJE */}
             {message && (
               <div
                 role="alert"
@@ -238,6 +278,7 @@ export default function LoginPage() {
               </div>
             )}
 
+            {/* BOTÓN */}
             <button
               type="submit"
               disabled={isLoading}
@@ -253,6 +294,7 @@ export default function LoginPage() {
               )}
             </button>
 
+            {/* SEGURIDAD */}
             <div className="flex items-center justify-center gap-2 pt-1 text-xs text-slate-400">
               <ShieldCheck size={15} />
               Acceso exclusivo para usuarios autorizados
@@ -260,13 +302,34 @@ export default function LoginPage() {
           </form>
         </section>
 
+        {/* PIE */}
         <footer className="mt-7 text-center">
-          <p className="text-xs text-slate-400">VAD-PERU E.I.R.L.</p>
+          <p className="text-xs text-slate-400">
+            VAD-PERU E.I.R.L.
+          </p>
+
           <p className="mt-1 text-[11px] text-slate-400">
             Plataforma de gestión de activos
           </p>
         </footer>
       </div>
     </main>
+  );
+}
+
+// Suspense requerido por useSearchParams en Next.js.
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#F7F8FA]">
+          <div className="text-sm text-slate-500">
+            Cargando...
+          </div>
+        </main>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
